@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jungle Wildlife Explorer - 3D Educational Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #051c0c;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(5, 28, 12, 0.88);
+            color: #ffffff;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #instructions h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            color: #4ade80;
+            text-shadow: 0 0 20px rgba(74, 222, 128, 0.5);
+        }
+
+        #instructions p {
+            font-size: 1.2rem;
+            max-width: 600px;
+            line-height: 1.6;
+            color: #cbd5e1;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 16px 44px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(22, 163, 74, 0.5);
+            transition: all 0.2s ease;
+            pointer-events: auto;
+        }
+
+        .btn:hover {
+            background: #15803d;
+            transform: scale(1.05);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            transform: translate(-50%, -50%);
+            border: 2px solid rgba(255, 255, 255, 0.75);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            transition: transform 0.1s ease, border-color 0.1s ease;
+        }
+
+        #crosshair.active {
+            transform: translate(-50%, -50%) scale(1.5);
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.2);
+        }
+
+        #info-card {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 23, 42, 0.92);
+            border: 2px solid #22c55e;
+            color: white;
+            padding: 20px 30px;
+            border-radius: 12px;
+            max-width: 520px;
+            width: 90%;
+            display: none;
+            z-index: 20;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            backdrop-filter: blur(6px);
+            pointer-events: none;
+        }
+
+        #info-card h2 {
+            margin: 0 0 8px 0;
+            color: #4ade80;
+            font-size: 1.5rem;
+        }
+
+        #info-card .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+        }
+
+        .status-critically-endangered { background: #dc2626; color: white; }
+        .status-endangered { background: #ea580c; color: white; }
+        .status-vulnerable { background: #ca8a04; color: white; }
+
+        #info-card p {
+            margin: 0;
+            font-size: 1rem;
+            color: #e2e8f0;
+            line-height: 1.5;
+        }
+
+        #top-bar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            z-index: 15;
+            pointer-events: none;
+        }
+
+        #controls-hint {
+            background: rgba(15, 23, 42, 0.85);
+            color: #cbd5e1;
+            padding: 12px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            border-left: 4px solid #22c55e;
+        }
+
+        #pause-btn {
+            background: rgba(15, 23, 42, 0.85);
+            color: white;
+            border: 1px solid #4ade80;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            pointer-events: auto;
+            display: none;
+        }
+
+        #pause-btn:hover {
+            background: #16a34a;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instructions">
+        <h1>Jungle Wildlife Explorer</h1>
+        <p>Explore a lush 3D rainforest ecosystem. Walk around and hover your crosshair over animals to discover their species, conservation status, and the environmental threats they face.</p>
+        <button type="button" class="btn" id="start-btn">Enter Jungle</button>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div id="top-bar">
+        <div id="controls-hint">
+            <strong>Controls:</strong> WASD / Arrow Keys to Walk | Move Mouse (or Click & Drag) to Look
+        </div>
+        <button type="button" id="pause-btn">Menu</button>
+    </div>
+
+    <div id="info-card">
+        <h2 id="animal-name">Animal Name</h2>
+        <div id="animal-status" class="status">Status</div>
+        <p id="animal-desc">Description goes here...</p>
+    </div>
+
+    <!-- Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let camera, scene, renderer;
+        let isPlaying = false;
+        let isPointerLocked = false;
+        let isDragging = false;
+        let prevMouseX = 0, prevMouseY = 0;
+
+        // Camera rotation angles (Euler YXZ)
+        let yaw = 0;
+        let pitch = 0;
+
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+        let prevTime = performance.now();
+        const velocity = new THREE.Vector3();
+
+        const animals = [];
+        const raycaster = new THREE.Raycaster();
+
+        const animalData = {
+            'Tiger': {
+                name: 'Sumatran Tiger',
+                status: 'Critically Endangered',
+                statusClass: 'status-critically-endangered',
+                desc: 'Fewer than 400 remain in the wild. Threatened by massive deforestation for palm oil plantations, illegal wildlife trade, and poaching.'
+            },
+            'Orangutan': {
+                name: 'Bornean Orangutan',
+                status: 'Critically Endangered',
+                statusClass: 'status-critically-endangered',
+                desc: 'Highly intelligent tree-dwellers facing rapid habitat destruction due to logging, forest fires, and conversion of jungle into agricultural land.'
+            },
+            'Tamarin': {
+                name: 'Golden Lion Tamarin',
+                status: 'Endangered',
+                statusClass: 'status-endangered',
+                desc: 'Endemic to Brazil’s Atlantic Forest. Only ~5% of their original habitat remains due to urban expansion, logging, and illegal pet trade.'
+            },
+            'Eagle': {
+                name: 'Harpy Eagle',
+                status: 'Vulnerable',
+                statusClass: 'status-vulnerable',
+                desc: 'One of the world’s most powerful raptors. Populations decline because they require vast territories of undisturbed forest and large nesting trees.'
+            }
+        };
+
+        init();
+        animate();
+
+        function init() {
+            // Scene Setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a2612);
+            scene.fog = new THREE.FogExp2(0x0a2612, 0.032);
+
+            // Camera Setup
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2.2, 10);
+            camera.rotation.order = 'YXZ';
+
+            // Renderer Setup
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // UI Buttons
+            const startButton = document.getElementById('start-btn');
+            const pauseButton = document.getElementById('pause-btn');
+            const instructions = document.getElementById('instructions');
+
+            startButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                startGame();
+            });
+
+            pauseButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                pauseGame();
+            });
+
+            function startGame() {
+                isPlaying = true;
+                instructions.style.display = 'none';
+                pauseButton.style.display = 'block';
+                window.focus();
+
+                // Attempt Pointer Lock, but don't rely on it exclusively
+                try {
+                    const lockPromise = document.body.requestPointerLock();
+                    if (lockPromise && lockPromise.catch) {
+                        lockPromise.catch(() => {});
+                    }
+                } catch (err) {
+                    // Fallback to drag-look automatically
+                }
+            }
+
+            function pauseGame() {
+                isPlaying = false;
+                instructions.style.display = 'flex';
+                pauseButton.style.display = 'none';
+                if (document.pointerLockElement) {
+                    document.exitPointerLock();
+                }
+            }
+
+            // Track Pointer Lock state
+            document.addEventListener('pointerlockchange', () => {
+                isPointerLocked = (document.pointerLockElement === document.body);
+            });
+
+            // Mouse Look (Supports BOTH PointerLock AND Click-and-Drag fallback)
+            document.addEventListener('mousedown', (e) => {
+                if (!isPlaying) return;
+                isDragging = true;
+                prevMouseX = e.clientX;
+                prevMouseY = e.clientY;
+            });
+
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isPlaying) return;
+
+                const sensitivity = 0.0025;
+                if (isPointerLocked) {
+                    yaw -= e.movementX * sensitivity;
+                    pitch -= e.movementY * sensitivity;
+                } else if (isDragging) {
+                    const deltaX = e.clientX - prevMouseX;
+                    const deltaY = e.clientY - prevMouseY;
+                    yaw -= deltaX * sensitivity * 1.5;
+                    pitch -= deltaY * sensitivity * 1.5;
+                    prevMouseX = e.clientX;
+                    prevMouseY = e.clientY;
+                }
+
+                // Clamp vertical look angle
+                pitch = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, pitch));
+                camera.rotation.y = yaw;
+                camera.rotation.x = pitch;
+            });
+
+            // Keyboard Listeners (WASD + Arrow Keys)
+            document.addEventListener('keydown', (event) => {
+                switch (event.code) {
+                    case 'KeyW':
+                    case 'ArrowUp':
+                        moveForward = true; break;
+                    case 'KeyA':
+                    case 'ArrowLeft':
+                        moveLeft = true; break;
+                    case 'KeyS':
+                    case 'ArrowDown':
+                        moveBackward = true; break;
+                    case 'KeyD':
+                    case 'ArrowRight':
+                        moveRight = true; break;
+                    case 'Escape':
+                        if (isPlaying && !isPointerLocked) pauseGame();
+                        break;
+                }
+            });
+
+            document.addEventListener('keyup', (event) => {
+                switch (event.code) {
+                    case 'KeyW':
+                    case 'ArrowUp':
+                        moveForward = false; break;
+                    case 'KeyA':
+                    case 'ArrowLeft':
+                        moveLeft = false; break;
+                    case 'KeyS':
+                    case 'ArrowDown':
+                        moveBackward = false; break;
+                    case 'KeyD':
+                    case 'ArrowRight':
+                        moveRight = false; break;
+                }
+            });
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0x3b734d, 1.3);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff5cc, 1.6);
+            sunLight.position.set(50, 100, 50);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            scene.add(sunLight);
+
+            // Create Jungle Environment
+            createTerrain();
+            createForest();
+            spawnAnimals();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createTerrain() {
+            const groundGeo = new THREE.PlaneGeometry(300, 300, 64, 64);
+            const groundMat = new THREE.MeshStandardMaterial({ 
+                color: 0x1b381e, 
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        function createTree(x, z) {
+            const treeGroup = new THREE.Group();
+
+            // Trunk
+            const trunkGeo = new THREE.CylinderGeometry(0.6, 1, 8, 8);
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 0.9 });
+            const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+            trunk.position.y = 4;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+            treeGroup.add(trunk);
+
+            // Canopy layers
+            const foliageMat = new THREE.MeshStandardMaterial({ color: 0x133810, roughness: 0.8 });
+            for (let i = 0; i < 3; i++) {
+                const radius = 4 - i * 0.8;
+                const height = 4;
+                const coneGeo = new THREE.ConeGeometry(radius, height, 7);
+                const cone = new THREE.Mesh(coneGeo, foliageMat);
+                cone.position.y = 7 + i * 2.5;
+                cone.castShadow = true;
+                treeGroup.add(cone);
+            }
+
+            treeGroup.position.set(x, 0, z);
+            scene.add(treeGroup);
+        }
+
+        function createForest() {
+            for (let i = 0; i < 120; i++) {
+                const x = (Math.random() - 0.5) * 260;
+                const z = (Math.random() - 0.5) * 260;
+                if (Math.abs(x) > 12 || Math.abs(z) > 12) {
+                    createTree(x, z);
+                }
+            }
+        }
+
+        function spawnAnimals() {
+            // 1. Sumatran Tiger
+            const tiger = createLowPolyTiger();
+            tiger.position.set(12, 0, -15);
+            tiger.userData = { id: 'Tiger', wanderCenter: new THREE.Vector3(12, 0, -15), wanderRadius: 8, speed: 1.4 };
+            scene.add(tiger);
+            animals.push(tiger);
+
+            // 2. Bornean Orangutan
+            const orangutan = createLowPolyOrangutan();
+            orangutan.position.set(-14, 0, -12);
+            orangutan.userData = { id: 'Orangutan', wanderCenter: new THREE.Vector3(-14, 0, -12), wanderRadius: 7, speed: 1.0 };
+            scene.add(orangutan);
+            animals.push(orangutan);
+
+            // 3. Golden Lion Tamarin
+            const tamarin = createLowPolyTamarin();
+            tamarin.position.set(8, 0, 2);
+            tamarin.userData = { id: 'Tamarin', wanderCenter: new THREE.Vector3(8, 0, 2), wanderRadius: 6, speed: 1.8 };
+            scene.add(tamarin);
+            animals.push(tamarin);
+
+            // 4. Harpy Eagle
+            const eagle = createLowPolyEagle();
+            eagle.position.set(-10, 1, 5);
+            eagle.userData = { id: 'Eagle', wanderCenter: new THREE.Vector3(-10, 1, 5), wanderRadius: 5, speed: 1.2 };
+            scene.add(eagle);
+            animals.push(eagle);
+        }
+
+        function createLowPolyTiger() {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 });
+            const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1e1b18, roughness: 0.9 });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.9, 2.5), mat);
+            body.position.y = 0.8;
+            body.castShadow = true;
+            group.add(body);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.8, 0.9), mat);
+            head.position.set(0, 1.2, 1.3);
+            head.castShadow = true;
+            group.add(head);
+
+            for (let x of [-0.4, 0.4]) {
+                for (let z of [-0.8, 0.8]) {
+                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.8, 0.3), stripeMat);
+                    leg.position.set(x, 0.4, z);
+                    leg.castShadow = true;
+                    group.add(leg);
+                }
+            }
+
+            group.scale.set(1.5, 1.5, 1.5);
+            return group;
+        }
+
+        function createLowPolyOrangutan() {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.8 });
+
+            const body = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.5, 1.6, 6), mat);
+            body.position.y = 1;
+            body.castShadow = true;
+            group.add(body);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.8), mat);
+            head.position.set(0, 2, 0.2);
+            head.castShadow = true;
+            group.add(head);
+
+            group.scale.set(1.4, 1.4, 1.4);
+            return group;
+        }
+
+        function createLowPolyTamarin() {
+            const group = new THREE.Group();
+            const mat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.8), mat);
+            body.position.y = 0.4;
+            body.castShadow = true;
+            group.add(body);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), mat);
+            head.position.set(0, 0.6, 0.4);
+            head.castShadow = true;
+            group.add(head);
+
+            group.scale.set(1.8, 1.8, 1.8);
+            return group;
+        }
+
+        function createLowPolyEagle() {
+            const group = new THREE.Group();
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x374151, roughness: 0.8 });
+            const headMat = new THREE.MeshStandardMaterial({ color: 0xf3f4f6, roughness: 0.8 });
+            const beakMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.5 });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 1.2), bodyMat);
+            body.position.y = 1;
+            body.castShadow = true;
+            group.add(body);
+
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.4, 0.4), headMat);
+            head.position.set(0, 1.4, 0.5);
+            head.castShadow = true;
+            group.add(head);
+
+            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.3, 4), beakMat);
+            beak.rotation.x = Math.PI / 2;
+            beak.position.set(0, 1.35, 0.75);
+            group.add(beak);
+
+            group.scale.set(1.5, 1.5, 1.5);
+            return group;
+        }
+
+        function updateAnimals() {
+            const time = performance.now() * 0.001;
+            animals.forEach((animal, index) => {
+                const data = animal.userData;
+                const angle = time * (data.speed * 0.3) + index * 2;
+                const targetX = data.wanderCenter.x + Math.sin(angle) * data.wanderRadius;
+                const targetZ = data.wanderCenter.z + Math.cos(angle) * data.wanderRadius;
+
+                animal.position.x = targetX;
+                animal.position.z = targetZ;
+                animal.rotation.y = angle + Math.PI / 2;
+            });
+        }
+
+        function checkHover() {
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const intersects = raycaster.intersectObjects(animals, true);
+
+            const infoCard = document.getElementById('info-card');
+            const crosshair = document.getElementById('crosshair');
+
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj.parent && !obj.userData?.id) {
+                    obj = obj.parent;
+                }
+
+                if (obj.userData && obj.userData.id) {
+                    const data = animalData[obj.userData.id];
+                    if (data) {
+                        document.getElementById('animal-name').innerText = data.name;
+                        const statusEl = document.getElementById('animal-status');
+                        statusEl.innerText = data.status;
+                        statusEl.className = 'status ' + data.statusClass;
+                        document.getElementById('animal-desc').innerText = data.desc;
+                        infoCard.style.display = 'block';
+                        crosshair.classList.add('active');
+                        return;
+                    }
+                }
+            }
+
+            infoCard.style.display = 'none';
+            crosshair.classList.remove('active');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = performance.now();
+            const delta = Math.min((time - prevTime) / 1000, 0.1);
+
+            if (isPlaying) {
+                const moveSpeed = 14.0;
+                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+                velocity.set(0, 0, 0);
+                if (moveForward) velocity.add(forward);
+                if (moveBackward) velocity.sub(forward);
+                if (moveRight) velocity.add(right);
+                if (moveLeft) velocity.sub(right);
+
+                if (velocity.lengthSq() > 0) {
+                    velocity.normalize().multiplyScalar(moveSpeed * delta);
+                    camera.position.add(velocity);
+                }
+
+                // Keep player within map boundaries
+                camera.position.x = Math.max(-130, Math.min(130, camera.position.x));
+                camera.position.z = Math.max(-130, Math.min(130, camera.position.z));
+                camera.position.y = 2.2;
+
+                updateAnimals();
+                checkHover();
+            }
+
+            prevTime = time;
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
