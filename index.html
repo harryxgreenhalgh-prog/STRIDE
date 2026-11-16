@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jungle Wildlife Explorer - iPad 3D</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #051c0c;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            touch-action: none;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        #instructions {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(5, 28, 12, 0.92);
+            color: #ffffff;
+            z-index: 100;
+            text-align: center;
+            padding: 24px;
+        }
+
+        #instructions h1 {
+            font-size: clamp(2rem, 5vw, 3.2rem);
+            margin: 0 0 12px 0;
+            color: #4ade80;
+            text-shadow: 0 0 20px rgba(74, 222, 128, 0.45);
+        }
+
+        #instructions p {
+            font-size: 1.15rem;
+            max-width: 560px;
+            line-height: 1.5;
+            color: #cbd5e1;
+            margin: 0 0 28px 0;
+        }
+
+        .btn {
+            background: #16a34a;
+            color: white;
+            border: none;
+            padding: 18px 48px;
+            font-size: 1.3rem;
+            font-weight: 700;
+            border-radius: 36px;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(22, 163, 74, 0.5);
+            touch-action: manipulation;
+        }
+
+        .btn:active {
+            background: #15803d;
+            transform: scale(0.96);
+        }
+
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 18px;
+            height: 18px;
+            transform: translate(-50%, -50%);
+            border: 2.5px solid rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10;
+            transition: transform 0.12s ease, border-color 0.12s ease;
+        }
+
+        #crosshair.active {
+            transform: translate(-50%, -50%) scale(1.6);
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.25);
+        }
+
+        #top-bar {
+            position: fixed;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        #controls-hint {
+            background: rgba(15, 23, 42, 0.82);
+            color: #e2e8f0;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            border-left: 4px solid #22c55e;
+        }
+
+        #pause-btn {
+            background: rgba(15, 23, 42, 0.88);
+            color: white;
+            border: 1.5px solid #4ade80;
+            padding: 12px 22px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            pointer-events: auto;
+            touch-action: manipulation;
+            display: none;
+        }
+
+        /* iPad Virtual Joystick (Bottom Left) */
+        #joystick-zone {
+            position: fixed;
+            bottom: 32px;
+            left: 32px;
+            width: 130px;
+            height: 130px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            border: 2px solid rgba(74, 222, 128, 0.55);
+            z-index: 30;
+            display: none;
+            touch-action: none;
+        }
+
+        #joystick-knob {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 54px;
+            height: 54px;
+            margin-left: -27px;
+            margin-top: -27px;
+            border-radius: 50%;
+            background: rgba(74, 222, 128, 0.85);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            pointer-events: none;
+        }
+
+        /* Educational Card (Top/Center-Bottom out of thumb's way) */
+        #info-card {
+            position: fixed;
+            bottom: 32px;
+            right: 24px;
+            left: 185px;
+            max-width: 520px;
+            margin-left: auto;
+            background: rgba(15, 23, 42, 0.94);
+            border: 2px solid #22c55e;
+            color: white;
+            padding: 16px 22px;
+            border-radius: 14px;
+            display: none;
+            z-index: 25;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            pointer-events: none;
+        }
+
+        #info-card h2 {
+            margin: 0 0 6px 0;
+            color: #4ade80;
+            font-size: 1.35rem;
+        }
+
+        #info-card .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+        }
+
+        .status-critically-endangered { background: #dc2626; color: white; }
+        .status-endangered { background: #ea580c; color: white; }
+        .status-vulnerable { background: #ca8a04; color: white; }
+
+        #info-card p {
+            margin: 0;
+            font-size: 0.95rem;
+            color: #e2e8f0;
+            line-height: 1.45;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="instructions">
+        <h1>Jungle Wildlife Explorer</h1>
+        <p>Use the <strong>left thumbstick</strong> to walk through the rainforest and <strong>drag anywhere on the screen</strong> to look around. Aim the center ring at any animal to learn its conservation status.</p>
+        <button type="button" class="btn" id="start-btn">Enter Jungle</button>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div id="top-bar">
+        <div id="controls-hint">
+            <strong>iPad Controls:</strong> Left Stick = Walk &nbsp;|&nbsp; Drag Screen = Look Around
+        </div>
+        <button type="button" id="pause-btn">Menu</button>
+    </div>
+
+    <div id="joystick-zone">
+        <div id="joystick-knob"></div>
+    </div>
+
+    <div id="info-card">
+        <h2 id="animal-name">Animal Name</h2>
+        <div id="animal-status" class="status">Status</div>
+        <p id="animal-desc">Description goes here...</p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        let camera, scene, renderer;
+        let isPlaying = false;
+
+        // Rotation state
+        let yaw = 0;
+        let pitch = 0;
+
+        // Touch & Joystick state
+        let joyTouchId = null;
+        let joyVector = { x: 0, y: 0 }; // x: left/right (-1..1), y: forward/back (-1..1)
+
+        let lookTouchId = null;
+        let lastLookX = 0;
+        let lastLookY = 0;
+
+        // Desktop fallback state
+        let isMouseDragging = false;
+        let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+
+        let prevTime = performance.now();
+        const velocity = new THREE.Vector3();
+        const animals = [];
+        const raycaster = new THREE.Raycaster();
+
+        const animalData = {
+            'Tiger': {
+                name: 'Sumatran Tiger',
+                status: 'Critically Endangered',
+                statusClass: 'status-critically-endangered',
+                desc: 'Fewer than 400 remain in the wild. Threatened by rapid deforestation for palm oil plantations, habitat fragmentation, and illegal poaching.'
+            },
+            'Orangutan': {
+                name: 'Bornean Orangutan',
+                status: 'Critically Endangered',
+                statusClass: 'status-critically-endangered',
+                desc: 'Tree-dwelling great apes losing their rainforest canopy to logging, forest fires, and agricultural expansion.'
+            },
+            'Tamarin': {
+                name: 'Golden Lion Tamarin',
+                status: 'Endangered',
+                statusClass: 'status-endangered',
+                desc: 'Native to Brazil’s Atlantic Forest. Over 90% of their original forest habitat has been cleared for cities, farming, and roads.'
+            },
+            'Eagle': {
+                name: 'Harpy Eagle',
+                status: 'Vulnerable',
+                statusClass: 'status-vulnerable',
+                desc: 'Apex rainforest raptor that needs vast, unbroken expanses of old-growth jungle and giant emergent trees to nest.'
+            }
+        };
+
+        init();
+        animate();
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0b2b14);
+            scene.fog = new THREE.FogExp2(0x0b2b14, 0.028);
+
+            camera = new THREE.PerspectiveCamera(72, window.innerWidth / window.innerHeight, 0.1, 500);
+            camera.position.set(0, 2.2, 12);
+            camera.rotation.order = 'YXZ';
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            setupUIAndControls();
+            setupLighting();
+            createTerrain();
+            createForest();
+            spawnAnimals();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function setupUIAndControls() {
+            const startButton = document.getElementById('start-btn');
+            const pauseButton = document.getElementById('pause-btn');
+            const instructions = document.getElementById('instructions');
+            const joystickZone = document.getElementById('joystick-zone');
+            const joystickKnob = document.getElementById('joystick-knob');
+
+            function enterJungle(e) {
+                if (e) e.preventDefault();
+                isPlaying = true;
+                instructions.style.display = 'none';
+                pauseButton.style.display = 'block';
+                joystickZone.style.display = 'block';
+            }
+
+            function openMenu(e) {
+                if (e) e.preventDefault();
+                isPlaying = false;
+                instructions.style.display = 'flex';
+                pauseButton.style.display = 'none';
+                joystickZone.style.display = 'none';
+                resetJoystick();
+            }
+
+            // Bind both touchstart and click so iPad Safari responds instantaneously
+            startButton.addEventListener('touchstart', enterJungle, { passive: false });
+            startButton.addEventListener('click', enterJungle);
+
+            pauseButton.addEventListener('touchstart', openMenu, { passive: false });
+            pauseButton.addEventListener('click', openMenu);
+
+            // Virtual Joystick Touch Handling
+            const maxRadius = 42;
+
+            function updateJoystick(touch) {
+                const rect = joystickZone.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                let dx = touch.clientX - centerX;
+                let dy = touch.clientY - centerY;
+                const dist = Math.hypot(dx, dy);
+
+                if (dist > maxRadius) {
+                    dx = (dx / dist) * maxRadius;
+                    dy = (dy / dist) * maxRadius;
+                }
+
+                joystickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+                joyVector.x = dx / maxRadius;
+                joyVector.y = -dy / maxRadius; // Up on stick = positive forward
+            }
+
+            function resetJoystick() {
+                joyTouchId = null;
+                joyVector.x = 0;
+                joyVector.y = 0;
+                joystickKnob.style.transform = 'translate(0px, 0px)';
+            }
+
+            joystickZone.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (joyTouchId === null && e.changedTouches.length > 0) {
+                    const t = e.changedTouches[0];
+                    joyTouchId = t.identifier;
+                    updateJoystick(t);
+                }
+            }, { passive: false });
+
+            // Multi-touch screen look (works simultaneously with left thumbstick)
+            window.addEventListener('touchstart', (e) => {
+                if (!isPlaying) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    if (t.identifier !== joyTouchId && lookTouchId === null) {
+                        // Ignore touches on the menu button
+                        if (t.target === pauseButton) continue;
+                        lookTouchId = t.identifier;
+                        lastLookX = t.clientX;
+                        lastLookY = t.clientY;
+                    }
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isPlaying) return;
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    if (t.identifier === joyTouchId) {
+                        updateJoystick(t);
+                    } else if (t.identifier === lookTouchId) {
+                        const dx = t.clientX - lastLookX;
+                        const dy = t.clientY - lastLookY;
+                        const sensitivity = 0.0055;
+                        yaw -= dx * sensitivity;
+                        pitch -= dy * sensitivity;
+                        pitch = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, pitch));
+                        camera.rotation.y = yaw;
+                        camera.rotation.x = pitch;
+                        lastLookX = t.clientX;
+                        lastLookY = t.clientY;
+                    }
+                }
+            }, { passive: true });
+
+            function handleTouchEnd(e) {
+                for (let i = 0; i < e.changedTouches.length; i++) {
+                    const t = e.changedTouches[i];
+                    if (t.identifier === joyTouchId) {
+                        resetJoystick();
+                    } else if (t.identifier === lookTouchId) {
+                        lookTouchId = null;
+                    }
+                }
+            }
+
+            window.addEventListener('touchend', handleTouchEnd);
+            window.addEventListener('touchcancel', handleTouchEnd);
+
+            // Optional Desktop Mouse/Keyboard Support
+            window.addEventListener('mousedown', (e) => {
+                if (!isPlaying || e.target === pauseButton) return;
+                isMouseDragging = true;
+                lastLookX = e.clientX;
+                lastLookY = e.clientY;
+            });
+            window.addEventListener('mouseup', () => { isMouseDragging = false; });
+            window.addEventListener('mousemove', (e) => {
+                if (!isPlaying || !isMouseDragging) return;
+                yaw -= (e.clientX - lastLookX) * 0.004;
+                pitch -= (e.clientY - lastLookY) * 0.004;
+                pitch = Math.max(-Math.PI / 2.3, Math.min(Math.PI / 2.3, pitch));
+                camera.rotation.y = yaw;
+                camera.rotation.x = pitch;
+                lastLookX = e.clientX;
+                lastLookY = e.clientY;
+            });
+
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') moveForward = true;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') moveBackward = true;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveLeft = true;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') moveRight = true;
+            });
+            window.addEventListener('keyup', (e) => {
+                if (e.code === 'KeyW' || e.code === 'ArrowUp') moveForward = false;
+                if (e.code === 'KeyS' || e.code === 'ArrowDown') moveBackward = false;
+                if (e.code === 'KeyA' || e.code === 'ArrowLeft') moveLeft = false;
+                if (e.code === 'KeyD' || e.code === 'ArrowRight') moveRight = false;
+            });
+        }
+
+        function setupLighting() {
+            const hemiLight = new THREE.HemisphereLight(0xa7f3d0, 0x143318, 1.1);
+            scene.add(hemiLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff7d6, 1.5);
+            sunLight.position.set(45, 90, 45);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 1024;
+            sunLight.shadow.mapSize.height = 1024;
+            scene.add(sunLight);
+        }
+
+        function createTerrain() {
+            const groundGeo = new THREE.PlaneGeometry(280, 280);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x1a3b1e, roughness: 0.92 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+        }
+
+        function createTree(x, z) {
+            const tree = new THREE.Group();
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x422a18, roughness: 0.9 });
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.95, 8, 7), trunkMat);
+            trunk.position.y = 4;
+            trunk.castShadow = true;
+            tree.add(trunk);
+
+            const leafColors = [0x144512, 0x1b5718, 0x22691e];
+            for (let i = 0; i < 3; i++) {
+                const leafMat = new THREE.MeshStandardMaterial({ color: leafColors[i], roughness: 0.8 });
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(4.2 - i * 0.85, 4.2, 7), leafMat);
+                cone.position.y = 7 + i * 2.4;
+                cone.castShadow = true;
+                tree.add(cone);
+            }
+
+            tree.position.set(x, 0, z);
+            scene.add(tree);
+        }
+
+        function createForest() {
+            for (let i = 0; i < 110; i++) {
+                const x = (Math.random() - 0.5) * 240;
+                const z = (Math.random() - 0.5) * 240;
+                if (Math.abs(x) > 14 || Math.abs(z) > 14) {
+                    createTree(x, z);
+                }
+            }
+        }
+
+        function spawnAnimals() {
+            const tiger = createDetailedTiger();
+            tiger.position.set(10, 0, -12);
+            tiger.userData = { id: 'Tiger', center: new THREE.Vector3(10, 0, -12), radius: 7, speed: 1.2 };
+            scene.add(tiger);
+            animals.push(tiger);
+
+            const orangutan = createDetailedOrangutan();
+            orangutan.position.set(-11, 0, -10);
+            orangutan.userData = { id: 'Orangutan', center: new THREE.Vector3(-11, 0, -10), radius: 6, speed: 0.9 };
+            scene.add(orangutan);
+            animals.push(orangutan);
+
+            const tamarin = createDetailedTamarin();
+            tamarin.position.set(7, 0, 3);
+            tamarin.userData = { id: 'Tamarin', center: new THREE.Vector3(7, 0, 3), radius: 5, speed: 1.6 };
+            scene.add(tamarin);
+            animals.push(tamarin);
+
+            const eagle = createDetailedEagle();
+            eagle.position.set(-8, 1.4, 4);
+            eagle.userData = { id: 'Eagle', center: new THREE.Vector3(-8, 1.4, 4), radius: 5, speed: 1.1 };
+            scene.add(eagle);
+            animals.push(eagle);
+        }
+
+        function createDetailedTiger() {
+            const g = new THREE.Group();
+            const orange = new THREE.MeshStandardMaterial({ color: 0xe67e22, roughness: 0.65 });
+            const white = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.7 });
+            const black = new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.8 });
+
+            // Torso & Chest
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.95, 2.4), orange);
+            body.position.y = 0.95;
+            body.castShadow = true;
+            g.add(body);
+
+            const belly = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.25, 2.2), white);
+            belly.position.y = 0.48;
+            g.add(belly);
+
+            // Stripes
+            for (let z = -0.7; z <= 0.7; z += 0.45) {
+                const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.14, 0.65, 0.14), black);
+                stripe.position.set(0, 1.05, z);
+                g.add(stripe);
+            }
+
+            // Head, Muzzle & Ears
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.85, 0.9), orange);
+            head.position.set(0, 1.25, 1.45);
+            head.castShadow = true;
+            g.add(head);
+
+            const muzzle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.4), white);
+            muzzle.position.set(0, 1.08, 1.95);
+            g.add(muzzle);
+
+            for (let side of [-0.32, 0.32]) {
+                const ear = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 0.15), black);
+                ear.position.set(side, 1.72, 1.35);
+                g.add(ear);
+            }
+
+            // Legs & Tail
+            for (let x of [-0.38, 0.38]) {
+                for (let z of [-0.85, 0.85]) {
+                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.85, 0.3), orange);
+                    leg.position.set(x, 0.42, z);
+                    leg.castShadow = true;
+                    g.add(leg);
+                }
+            }
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 1.3), orange);
+            tail.position.set(0, 1.1, -1.7);
+            tail.rotation.x = -0.35;
+            g.add(tail);
+
+            g.scale.set(1.3, 1.3, 1.3);
+            return g;
+        }
+
+        function createDetailedOrangutan() {
+            const g = new THREE.Group();
+            const fur = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85 });
+            const faceMat = new THREE.MeshStandardMaterial({ color: 0x3f2e26, roughness: 0.7 });
+
+            const torso = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 1), fur);
+            torso.scale.set(1, 1.25, 0.85);
+            torso.position.y = 1.15;
+            torso.castShadow = true;
+            g.add(torso);
+
+            const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 1), fur);
+            head.position.set(0, 2.15, 0.15);
+            head.castShadow = true;
+            g.add(head);
+
+            const face = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.5, 0.25), faceMat);
+            face.position.set(0, 2.1, 0.58);
+            g.add(face);
+
+            // Long Orangutan Arms
+            for (let side of [-0.85, 0.85]) {
+                const arm = new THREE.Mesh(new THREE.BoxGeometry(0.32, 1.5, 0.32), fur);
+                arm.position.set(side, 0.85, 0.2);
+                arm.rotation.x = -0.2;
+                arm.castShadow = true;
+                g.add(arm);
+            }
+
+            g.scale.set(1.25, 1.25, 1.25);
+            return g;
+        }
+
+        function createDetailedTamarin() {
+            const g = new THREE.Group();
+            const gold = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.55 });
+            const maneMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.7 });
+            const faceMat = new THREE.MeshStandardMaterial({ color: 0x292524, roughness: 0.7 });
+
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.9), gold);
+            body.position.y = 0.55;
+            body.castShadow = true;
+            g.add(body);
+
+            // Lion Mane
+            const mane = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), maneMat);
+            mane.position.set(0, 0.85, 0.45);
+            mane.castShadow = true;
+            g.add(mane);
+
+            const face = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.2), faceMat);
+            face.position.set(0, 0.84, 0.78);
+            g.add(face);
+
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 1.1), gold);
+            tail.position.set(0, 0.75, -0.85);
+            tail.rotation.x = 0.4;
+            g.add(tail);
+
+            for (let x of [-0.16, 0.16]) {
+                for (let z of [-0.3, 0.3]) {
+                    const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.4, 0.12), gold);
+                    leg.position.set(x, 0.2, z);
+                    g.add(leg);
+                }
+            }
+
+            g.scale.set(1.6, 1.6, 1.6);
+            return g;
+        }
+
+        function createDetailedEagle() {
+            const g = new THREE.Group();
+            const slate = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.75 });
+            const light = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.75 });
+            const beakMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4 });
+
+            const body = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.3, 7), slate);
+            body.rotation.x = Math.PI / 2.4;
+            body.position.y = 0.8;
+            body.castShadow = true;
+            g.add(body);
+
+            const head = new THREE.Mesh(new THREE.DodecahedronGeometry(0.32, 0), light);
+            head.position.set(0, 1.3, 0.45);
+            g.add(head);
+
+            // Crest feathers
+            const crest = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.4, 5), slate);
+            crest.position.set(0, 1.58, 0.35);
+            crest.rotation.x = -0.3;
+            g.add(crest);
+
+            const beak = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.32, 4), beakMat);
+            beak.rotation.x = Math.PI / 2;
+            beak.position.set(0, 1.25, 0.78);
+            g.add(beak);
+
+            // Spread Wings
+            for (let side of [-1, 1]) {
+                const wing = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 0.65), slate);
+                wing.position.set(side * 0.85, 0.95, 0.1);
+                wing.rotation.z = side * 0.15;
+                wing.castShadow = true;
+                g.add(wing);
+            }
+
+            g.scale.set(1.4, 1.4, 1.4);
+            return g;
+        }
+
+        function updateAnimals() {
+            const time = performance.now() * 0.001;
+            animals.forEach((animal, i) => {
+                const d = animal.userData;
+                const angle = time * (d.speed * 0.32) + i * 1.7;
+                const nextAngle = angle + 0.05;
+
+                const x = d.center.x + Math.sin(angle) * d.radius;
+                const z = d.center.z + Math.cos(angle) * d.radius;
+
+                const nx = d.center.x + Math.sin(nextAngle) * d.radius;
+                const nz = d.center.z + Math.cos(nextAngle) * d.radius;
+
+                animal.position.x = x;
+                animal.position.z = z;
+                animal.lookAt(nx, animal.position.y, nz);
+            });
+        }
+
+        function checkHover() {
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+            const hits = raycaster.intersectObjects(animals, true);
+
+            const infoCard = document.getElementById('info-card');
+            const crosshair = document.getElementById('crosshair');
+
+            if (hits.length > 0) {
+                let obj = hits[0].object;
+                while (obj.parent && (!obj.userData || !obj.userData.id)) {
+                    obj = obj.parent;
+                }
+
+                if (obj.userData && obj.userData.id) {
+                    const data = animalData[obj.userData.id];
+                    if (data) {
+                        document.getElementById('animal-name').textContent = data.name;
+                        const statusEl = document.getElementById('animal-status');
+                        statusEl.textContent = data.status;
+                        statusEl.className = 'status ' + data.statusClass;
+                        document.getElementById('animal-desc').textContent = data.desc;
+                        infoCard.style.display = 'block';
+                        crosshair.classList.add('active');
+                        return;
+                    }
+                }
+            }
+
+            infoCard.style.display = 'none';
+            crosshair.classList.remove('active');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const delta = Math.min((now - prevTime) / 1000, 0.1);
+            prevTime = now;
+
+            if (isPlaying) {
+                const moveSpeed = 13.0;
+                const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+                const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
+
+                velocity.set(0, 0, 0);
+
+                // Combine touch joystick + keyboard input
+                const forwardAmount = joyVector.y + (moveForward ? 1 : 0) - (moveBackward ? 1 : 0);
+                const rightAmount = joyVector.x + (moveRight ? 1 : 0) - (moveLeft ? 1 : 0);
+
+                velocity.addScaledVector(forward, forwardAmount);
+                velocity.addScaledVector(right, rightAmount);
+
+                if (velocity.length() > 1) velocity.normalize();
+                camera.position.addScaledVector(velocity, moveSpeed * delta);
+
+                camera.position.x = Math.max(-120, Math.min(120, camera.position.x));
+                camera.position.z = Math.max(-120, Math.min(120, camera.position.z));
+                camera.position.y = 2.2;
+
+                updateAnimals();
+                checkHover();
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
